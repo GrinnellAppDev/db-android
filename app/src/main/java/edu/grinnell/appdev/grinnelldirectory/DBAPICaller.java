@@ -4,6 +4,7 @@ import edu.grinnell.appdev.grinnelldirectory.interfaces.DbSearchAPI;
 import edu.grinnell.appdev.grinnelldirectory.interfaces.DbSearchCallback;
 import edu.grinnell.appdev.grinnelldirectory.interfaces.SearchCaller;
 import edu.grinnell.appdev.grinnelldirectory.models.Person;
+import edu.grinnell.appdev.grinnelldirectory.models.Query;
 import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -31,41 +32,20 @@ public class DBAPICaller implements SearchCaller {
         this.callback = callback;
     }
 
-    @Override
-    public void simpleSearch(String lastName, String firstName, String major, String classYear) {
-        advancedSearch(
-            lastName,
-            firstName,
-            "",
-            "",
-            "",
-            "",
-            classYear,
-            "",
-            major,
-            "",
-            "",
-            ""
-        );
-    }
-
-    @Override public void advancedSearch(String lastName, String firstName, String userName,
-        String campusPhone, String campusAddress, String homeAddress, String classYear,
-        String facStaffOffice, String major, String concentration, String sgaPosition,
-        String onHiatus) {
+    @Override public void search(Query query) {
         Call<List<Person>> call = searchEndpoint.advancedSearch(
-            lastName,
-            firstName,
-            userName,
-            campusPhone,
-            campusAddress,
-            homeAddress,
-            classYear,
-            facStaffOffice,
-            major,
-            concentration,
-            sgaPosition,
-            onHiatus
+            query.getLastName(),
+            query.getFirstName(),
+            query.getUserName(),
+            query.getCampusPhone(),
+            query.getCampusAddress(),
+            query.getHomeAddress(),
+            query.getClassYear(),
+            query.getFacStaffOffice(),
+            query.getMajor(),
+            query.getConcentration(),
+            query.getSgaPosition(),
+            query.getOnHiatus()
         );
         call.enqueue(new Callback<List<Person>>() {
             @Override

@@ -1,15 +1,15 @@
 package edu.grinnell.appdev.grinnelldirectory.activities;
 
-import android.Manifest;
 import android.animation.ObjectAnimator;
+import android.animation.TimeInterpolator;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.util.Pair;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
 import android.view.Menu;
@@ -17,6 +17,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.view.animation.BaseInterpolator;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.Interpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -34,11 +37,12 @@ import edu.grinnell.appdev.grinnelldirectory.models.Person;
 
 public class DetailActivity extends AppCompatActivity {
 
-    public static final int ANIMATION_DURATION = 500;
+    public static final int ANIMATION_DURATION = 300;
 
     private Person person;
     boolean isImageZoomed;
     private Pair<Float, Float> zoomedPicTranslate;
+    private Interpolator interpolator = new DecelerateInterpolator();
 
     @BindView(R.id.relative_layout)
     View relativeLayout;
@@ -92,11 +96,12 @@ public class DetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_detail);
         ButterKnife.bind(this);
 
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        person = getIntent().getParcelableExtra(Person.PERSON_KEY);
-        //Bundle extras = getIntent().getExtras();
-        //p = (Person) extras.getSerializable(Person.PERSON_KEY);
+        ActionBar supportActionBar = getSupportActionBar();
+        if (supportActionBar != null) {
+            supportActionBar.setDisplayHomeAsUpEnabled(true);
+        }
 
+        person = getIntent().getParcelableExtra(Person.PERSON_KEY);
         if (person != null) {
             setFields();
         }
@@ -121,14 +126,7 @@ public class DetailActivity extends AppCompatActivity {
             classYear.setText(String.valueOf(year));
         }
 
-        String un = person.getUserName();
-        if (un == null || un.isEmpty()) {
-            String email = person.getEmail();
-            String unFromEmail = email.substring(0, email.indexOf('@'));
-            username.setText(getString(R.string.email_shorthand, unFromEmail));
-        } else {
-            username.setText(getString(R.string.email_shorthand, un));
-        }
+        username.setText(person.formattedEmail(this));
 
         String mjr = person.getMajor();
         if (mjr == null || mjr.isEmpty()) {
@@ -203,7 +201,7 @@ public class DetailActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case android.R.id.home:
-                finish();
+                safeFinish();
                 break;
             case R.id.action_email:
                 sendEmail();
@@ -212,6 +210,14 @@ public class DetailActivity extends AppCompatActivity {
                 break;
         }
         return true;
+    }
+
+    private void safeFinish() {
+        if (Build.VERSION.SDK_INT < 21) {
+            finish();
+        } else {
+            finishAfterTransition();
+        }
     }
 
     @Override
@@ -258,7 +264,7 @@ public class DetailActivity extends AppCompatActivity {
         Animation animDarken = new AlphaAnimation(from, to);
         animDarken.setFillAfter(true);
         animDarken.setDuration(ANIMATION_DURATION);
-        animDarken.setInterpolator(new OvershootInterpolator());
+        animDarken.setInterpolator(interpolator);
         target.startAnimation(animDarken);
     }
 
@@ -267,8 +273,8 @@ public class DetailActivity extends AppCompatActivity {
         ObjectAnimator animScaleNewY = ObjectAnimator.ofFloat(target, "scaleY", from, to);
         animScaleNewX.setDuration(ANIMATION_DURATION);
         animScaleNewY.setDuration(ANIMATION_DURATION);
-        animScaleNewX.setInterpolator(new OvershootInterpolator());
-        animScaleNewY.setInterpolator(new OvershootInterpolator());
+        animScaleNewX.setInterpolator(interpolator);
+        animScaleNewY.setInterpolator(interpolator);
         animScaleNewX.start();
         animScaleNewY.start();
     }
@@ -278,8 +284,8 @@ public class DetailActivity extends AppCompatActivity {
         ObjectAnimator animTransNewY = ObjectAnimator.ofFloat(target, "translationY", fromHeight, toHeight);
         animTransNewX.setDuration(ANIMATION_DURATION);
         animTransNewY.setDuration(ANIMATION_DURATION);
-        animTransNewX.setInterpolator(new OvershootInterpolator());
-        animTransNewY.setInterpolator(new OvershootInterpolator());
+        animTransNewX.setInterpolator(interpolator);
+        animTransNewY.setInterpolator(interpolator);
         animTransNewX.start();
         animTransNewY.start();
     }
@@ -313,7 +319,7 @@ public class DetailActivity extends AppCompatActivity {
         /* get username */
         String uname = (String) username.getText();
 
-        if (uname != null || !uname.isEmpty()) {
+        if (uname != null && !uname.isEmpty()) {
             /* send mail and handle exception if no mail app is found */
             try {
                 String email = getString(R.string.base_email, uname.substring(1, uname.length() - 1));
@@ -345,30 +351,6 @@ public class DetailActivity extends AppCompatActivity {
 
             } catch (ActivityNotFoundException e) {
                 e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * Function to open call app on phone with an active call to the person the user is viewing.
-     */
-    private void sendCall() {
-        Intent callIntent = new Intent(Intent.ACTION_CALL); //use ACTION_CALL class
-        callIntent.setData(Uri.parse(getString(R.string.phone_uri, person.getPhone())));    //this is the phone number calling
-        //check permission
-        //If the device is running Android 6.0 (API level 23) and the app's targetSdkVersion is 23 or higher,
-        //the system asks the user to grant approval.
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-            //request permission from user if the app hasn't got the required permission
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CALL_PHONE},   //request specific permission from user
-                    10);
-        } else {     //have got permission
-            try {
-                startActivity(callIntent);  //call activity and make phone call
-            }
-            catch (android.content.ActivityNotFoundException ex){
-                Toast.makeText(getApplicationContext(),"Error: could not place call.",Toast.LENGTH_SHORT).show();
             }
         }
     }

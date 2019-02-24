@@ -1,8 +1,11 @@
 package edu.grinnell.appdev.grinnelldirectory.adapters;
 
-import android.content.Context;
+import android.annotation.TargetApi;
+import android.app.Activity;
 import android.content.Intent;
-import android.os.Bundle;
+import android.os.Build;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityOptionsCompat;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,11 +24,11 @@ import edu.grinnell.appdev.grinnelldirectory.models.Person;
 public class SearchResultsAdapter extends RecyclerView.Adapter<SearchResultsAdapter.ViewHolder> {
 
     private List<Person> mPersons;
-    private Context mContext;
+    private Activity parentActivity;
 
-    public SearchResultsAdapter(Context context, List<Person> persons) {
+    public SearchResultsAdapter(Activity parent, List<Person> persons) {
         mPersons = persons;
-        mContext = context;
+        parentActivity = parent;
     }
 
     public void updateData(List<Person> persons) {
@@ -33,22 +36,22 @@ public class SearchResultsAdapter extends RecyclerView.Adapter<SearchResultsAdap
         notifyDataSetChanged();
     }
 
-    @Override
-    public SearchResultsAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        final LayoutInflater inflater = LayoutInflater.from(mContext);
+    @NonNull @Override
+    public SearchResultsAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        final LayoutInflater inflater = LayoutInflater.from(parentActivity);
         View personView = inflater.inflate(R.layout.item_searchresult, parent, false);
         return new ViewHolder(personView);
     }
 
     @Override
-    public void onBindViewHolder(SearchResultsAdapter.ViewHolder viewHolder, int position) {
+    public void onBindViewHolder(@NonNull SearchResultsAdapter.ViewHolder viewHolder, int position) {
         Person person = mPersons.get(position);
 
         String imgPath = person.getImgPath();
         if (imgPath != null && !imgPath.isEmpty()) {
-            Picasso.with(mContext).load(person.getImgPath()).into(viewHolder.personImage);
+            Picasso.with(parentActivity).load(person.getImgPath()).into(viewHolder.personImage);
         } else {
-            Picasso.with(mContext).load(R.drawable.person_grey).into(viewHolder.personImage);
+            Picasso.with(parentActivity).load(R.drawable.person_grey).into(viewHolder.personImage);
         }
 
         String name = person.getFirstName() + " " + person.getLastName();
@@ -62,13 +65,7 @@ public class SearchResultsAdapter extends RecyclerView.Adapter<SearchResultsAdap
             viewHolder.major.setVisibility(View.GONE);
         }
 
-        String un = person.getUserName();
-        if (un == null || un.isEmpty()) {
-            String email = person.getEmail();
-            viewHolder.username.setText("[" + email.substring(0, email.indexOf('@')) + "]");
-        } else {
-            viewHolder.username.setText("[" + un + "]");
-        }
+        viewHolder.username.setText(person.formattedEmail(parentActivity));
 
         int classYear = person.getClassYear();
         if (classYear > 0) {
@@ -94,7 +91,7 @@ public class SearchResultsAdapter extends RecyclerView.Adapter<SearchResultsAdap
         public TextView username;
         public TextView classYear;
 
-        public ViewHolder(View itemView) {
+        ViewHolder(View itemView) {
             super(itemView);
             itemView.setOnClickListener(this);
 
@@ -107,9 +104,18 @@ public class SearchResultsAdapter extends RecyclerView.Adapter<SearchResultsAdap
 
         @Override
         public void onClick(View v) {
-            Intent intent = new Intent(mContext, DetailActivity.class);
+            Intent intent = new Intent(parentActivity, DetailActivity.class);
             intent.putExtra(Person.PERSON_KEY, mPersons.get(getAdapterPosition()));
-            mContext.startActivity(intent);
+            if (Build.VERSION.SDK_INT < 16) {
+                parentActivity.startActivity(intent);
+            } else {
+                startDetailActivity(intent);
+            }
+        }
+
+        @TargetApi(16) private void startDetailActivity(Intent detailIntent) {
+            ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(parentActivity, personImage, "person_image");
+            parentActivity.startActivity(detailIntent, options.toBundle());
         }
     }
 }
